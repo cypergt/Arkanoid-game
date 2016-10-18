@@ -1,0 +1,26 @@
+(require 2htdp/image)
+(require 2htdp/universe)
+
+
+(define largura 800)
+(define altura 600)
+(define img-ball(scale 0.2 .))
+(define img-barra(scale 0.6 .))
+(define cenario (empty-scene largura altura))
+(define DX-x 3)
+(define quadrado (rectangle 50 25 "solid" "orange"))
+(define quadrado2 (rectangle 50 25 "solid" "blue"))
+
+
+
+;; Definicoes de dados
+
+;; ball e um numero[0, +inf]
+;; interp. posicao x da ball
+;; exemplos:
+(define inicio
+  (above img-ball img-barra))
+
+
+
+
