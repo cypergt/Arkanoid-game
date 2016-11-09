@@ -1,0 +1,258 @@
+(require 2htdp/image)
+(require 2htdp/universe)
+
+;; jogo arkanoid
+
+;; constantes
+(define largura 600)
+(define altura 400)
+(define cenario (empty-scene largura altura))
+(define img-ball (scale 0.2 (bitmap "bola.png")))
+(define ball-angulo 10)
+(define block (rectangle 30 15 "solid" "green"))
+(define barrra (scale 0.6 (bitmap "barra.png")))
+(define barra-y (round (* altura 0.9)))
+(define GAME-OVER (overlay (text "GAME OVER" 20 "black") cenario))
+
+;; definicoes de dados\
+;; block e o quadrado que e alvo da bola
+;; cada vez que um quadrado e atingido ele some
+;; o que atinge o "block" e a bola
+
+(define-struct ball (x y dx dy))
+;; Ball e make-ball natural natural
+;; interp. make-ball x y dx dy e bola que se move
+;; sua posição é dada por x, y e a sua velocidade
+;; é dada por dx e dy
+
+(define ball0 (make-ball 0 0 3 3))
+(define ball1 (make-ball 10 10 3 3))
+(define ball2 (make-ball (/ largura 2) (/ altura 2) -3 -3))
+(define ball3 (make-ball largura altura -3 -3))
+
+#;
+;; template
+(define (fn-para-ball b)
+  (... (ball-x b)
+       (ball-y b)
+       (ball-dx b)
+       (ball-dy b)))
+
+;; Barra
+(define-struct barra (x dx))
+;; Barra e make-barra natural
+;; interp. make-barra x dx e a barra controlada pelo usuario
+;; se localiza na parte interior da tela
+;; corre apenas no eixo x
+
+(define barra0 (make-barra (/ largura 2) 10))
+(define barra1 (make-barra 0 10))
+(define barra2 (make-barra (/ largura 2) 10))
+(define barra3 (make-barra largura -10))
+
+#;
+;; template
+(define (fn-para-barra b)
+  (... (barra-x b)
+       (barra-dx b)))
+
+;; mundo
+(define-struct mundo (ball barra score))
+;; Mundo e make-mundo Ball Barra
+;; interp. - make-mundo Ball Barra - e o mundo onde
+;; a bola e a barra vao se movimentar
+;; score e o numero de colisoes que a bola  vai ter
+
+(define mundo1 (make-mundo ball1 barra1 0))
+(define mundo2 (make-mundo ball2 barra2 10))
+
+#;
+;; template
+(define (fn-para-mundo m)
+  (... (fn-para-mundo mundo-ball m)
+       (fn-para-barra mundo-barra m)
+       (mundo-score m)))
+
+;; funcoes
+;; Ball Barra -> Mundo
+;; Consome a Ball e a Barra e produz o inicial estado
+;; do mundo
+
+(check-expect (inicial-mundo ball0 barra0)
+              (make-mundo ball0 barra0 0))
+(check-expect (inicial-mundo ball1 barra1)
+              (make-mundo ball1 barra1 0))
+(check-expect (inicial-mundo ball2 barra2)
+              (make-mundo ball2 barra2 0))
+
+; (define (inicial-mundo ball barra)
+;      (make-mundo ball0 ball1 0)) ; stub
+
+(define (inicial-mundo ball barra)
+  (make-mundo ball barra 0))
+
+;; Ball -> Ball
+;; Consome a Ball e produz uma nova Ball
+;; em sua nova posicao
+;; e usado x=x + dx e y=y + dy
+
+(check-expect (proxima-ball ball0)
+              (make-ball 3 3 3 3))
+(check-expect (proxima-ball ball1)
+              (make-ball 13 13 13 13))
+(check-expect (proxima-ball ball2)
+              (make-ball (+ (/ largura 2) -3) (+ (/ altura 2) -3) -3 -3))
+(check-expect (proxima-ball ball3)
+              (make-ball (+ largura -3) (+ altura -3) -3 -3))
+
+;; colisao
+;; momento em que a ball toca a barra, paredes
+;; ou block
+
+(define (colisao b)
+  (cond [(and (< (ball-dx b) 0) (< (ball-x b) ball-angulo))
+         (make-ball (ball-x b)
+                    (ball-y b)
+                    (* (ball-dx b) -1)
+                    (ball-dy b))]
+        [(and (< (ball-dy b) 0) (< (ball-y b) ball-angulo))
+         (make-ball (ball-x b)
+                    (ball-y b)
+                    (ball-dx b)
+                    (* (ball-dy b) -1))]
+        [(and (> (ball-dy b) 0) (>= (ball-y b) (- altura ball-angulo)))
+         (make-ball (ball-x b)
+                    (ball-y b)
+                    (ball-dx b)
+                    (* (ball-dy b) -1))]
+        [(and (> (ball-dx b) 0) (>= (ball-x b) (- largura ball-angulo)))
+         (make-ball (ball-x b)
+                    (ball-y b)
+                    (* (ball-dx b) -1)
+                    (ball-dy b))]
+        [else b]))
+
+;(define (proxima-ball b)
+;  (make-ball 10 10 5 5)) ; stub
+
+(define (proxima-ball b)
+  (colisao (make-ball (+ (ball-x b) (ball-dx b))
+           (+ (ball-y b) (ball-dy b))
+           (ball-dx b)
+           (ball-dy b))))
+
+(define ball4 (make-ball 5 50 -3 3))
+(define ball5 (make-ball (- largura (- ball-angulo 5)) 100 5 5))
+(define ball6 (make-ball (/ largura 2) (- altura (- ball-angulo 5)) 5 5))
+(define ball7 (make-ball (/ largura 2) (- ball-angulo 5) -5 -5))
+(define ball8 (make-ball (- ball-angulo 5) (- ball-angulo 5) -5 -5))
+
+
+(check-expect (colisao ball4)
+              (make-ball (ball-x ball4) (ball-y ball4) (* (ball-dx ball4) -1) (ball-dy ball4)))
+(check-expect (colisao ball5)
+              (make-ball (ball-x ball5) (ball-y ball5) (* (ball-dx ball5) -1) (ball-dy ball5)))
+
+;; Barra -> Barra
+;; Consome a Barra e produz uma nova Barra em uma nova
+;; posicao, usa x=x + dx
+
+(check-expect (proxima-barra barra0)
+              (make-barra (+ (/ largura 2) 10) 10))
+(check-expect (proxima-barra barra1)
+              (make-barra 10 10))
+(check-expect (proxima-barra barra3)
+              (make-barra (+ largura -10) -10))
+
+; (define (proxima-barra b) (make-barra 0 0)) ; stub
+
+;; template barra
+(define (proxima-barra b)
+  (make-barra (+ (barra-x b) (barra-dx b)) (barra-dx b)))
+
+;; Mundo -> Mundo
+;; Mundo recebe o estado de Mundo e produz
+;; um novo estado do Mundo movendo os objetos
+;; (ball e barra) em suas novas posicoes
+;; As posicoes sao calculadas usando sua
+;; velocidade atribuida
+
+; (define (upgrade-mundo m) (make-mundo ball1 barra1 0)) ; stub
+
+(check-expect (upgrade-mundo (make-mundo ball0 barra0 0))
+              (make-mundo (proxima-ball ball0) barra0 0))
+(check-expect (upgrade-mundo (make-mundo ball1 barra0 3))
+              (make-mundo (proxima-ball ball1) barra0 3))
+(check-expect (upgrade-mundo (make-mundo ball2 barra1 2))
+              (make-mundo (proxima-ball ball2) barra1 2))
+
+;; template para mundo
+(define (upgrade-mundo m)
+  (make-mundo (proxima-ball (mundo-ball m))
+              (mundo-barra m)
+              (mundo-score m)))
+
+;; Mundo -> Image
+;; Mundo recebe o estado do mundo e responde
+;; e a imagem do bola e da barra em sua posicao
+;; (x, y) posicao
+
+;; (define (desenho-mundo m)
+;;    (place-image barrra (/ largura 2) barra-y (place-image img-ball 0 0 cenario))) ; stub
+
+(define (desenha-mundo w)
+  (place-image barrra (barra-x (mundo-barra w)) barra-y
+               (place-image img-ball (ball-x (mundo-ball w)) (ball-y (mundo-ball w)) cenario)))
+
+
+(check-expect (desenha-mundo (make-mundo ball0 barra0 0))
+              (place-image barrra (barra-x barra0) barra-y
+              (place-image img-ball (ball-x ball0) (ball-y ball0) cenario)))
+
+;; template para mundo
+
+;; Mundo KeyEvent -> Mundo
+;; Recebe o Mundo e o KeyEvent e produz o novo Mundo com a barra
+;; seta para esquerda: Move a barra para a esquerda (barra-x e x = x - dx)
+;; seta para direira: Move a barra para a direita (barra-x e x = x + dx)
+;; space: inicia o jogo
+
+(check-expect (trata-tecla (make-mundo ball0 barra0 0) " " ) (make-mundo ball0 barra0 0))
+(check-expect (trata-tecla (make-mundo ball0 barra0 0) "left" )
+              (make-mundo ball0 (make-barra (- (barra-x barra0) (barra-dx barra0)) (barra-dx barra0)) 0))
+(check-expect (trata-tecla (make-mundo ball0 barra0 0) "right" )
+              (make-mundo ball0 (make-barra (+ (barra-x barra0) (barra-dx barra0)) (barra-dx barra0)) 0))
+
+; (define (trata-tecla w key) (make-mundo ball0 barra0 0)) ; stub
+
+(define (trata-tecla w key)
+  (cond [(key=? key "left")
+         (make-mundo (mundo-ball w)
+                     (make-barra
+                      (- (barra-x (mundo-barra w)) (barra-dx (mundo-barra w)))
+                      (barra-dx (mundo-barra w)))
+                     (mundo-score w))]
+        [(key=? key "right")
+         (make-mundo (mundo-ball w)
+                     (make-barra
+                      (+ (barra-x (mundo-barra w)) (barra-dx (mundo-barra w)))
+                      (barra-dx (mundo-barra w)))
+                     (mundo-score w))]
+        [(key=? key " ") (inicial-mundo ball0 barra0)]
+        [else w]))
+
+; template para KeyEvent
+
+;; Mundo -> Mundo
+;; inicia o mundo com (main ball0)
+;; !!!
+
+(define (main ball0)
+  (big-bang (inicial-mundo ball0 barra0)
+            (on-tick upgrade-mundo)
+            (to-draw desenha-mundo)
+            ;(stop-when ...)
+            ;(on-mouse ...)
+            (on-key trata-tecla)))
+
+(main ball0)
